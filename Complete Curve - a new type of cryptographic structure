@@ -14,6 +14,12 @@ The curve equation is:
 ```
 y² = ax⁵ + bx⁴ + x³ + cx² - c
 ```
+Define a helper function G(a, b) such that it finds the value of K in:
+a^4 + b^4 + ab + 1 = K - (b+1)^4
+so that G(a,b)=K.
+
+When publishing encoded point data, the transmitted value for a point with coordinate x is:
+t = y^2 * ( G(a + c, b c + x) + x - c )
 
 where parameters (a, b) are the secret key, and c is computed from the constraint:
 ```
@@ -44,7 +50,10 @@ Alice and Bob share secret parameters (a, b). To encrypt:
 4. Encode the bit in the sign of the y-coordinate (positive = 1, negative = 0)
 5. Add decoy points and shuffle
 6. Send the constellation
-
+7.(> When publishing point data:  
+> Each transmitted scalar is  
+> t = y^2 * ( G(a + c, b c + x) + x - c )  
+> (receiver, knowing a,b,c and x, computes the same multiplier and divides to recover y^2).)
 Without knowing (a, b), an attacker can't determine:
 - How many components exist
 - Where component boundaries are
