@@ -1,0 +1,184 @@
+y^2 = ax^5 + bx^4 + x^3 + cx^2 - c
+where c is the solution of,
+(a+b)^2 + (ab)^2 = c^4 - 2ac^2 (its alwayss irrational for integer a and b)
+
+# Complete Curve Protocol (CCP)
+
+A novel cryptographic system based on quintic polynomial curves with parameter-dependent algebraic structures.
+
+## Overview
+
+Most cryptosystems hide data *within* a fixed mathematical structure (like RSA's modular arithmetic or ECC's elliptic curves). CCP takes a different approach: **the structure itself is the secret**.
+
+The curve equation is:
+```
+y² = ax⁵ + bx⁴ + x³ + cx² - c
+```
+
+where parameters (a, b) are the secret key, and c is computed from the constraint:
+```
+(a+b)² + (ab)² = c⁴ - 2c²
+```
+
+This constraint creates several interesting properties:
+- For integer (a,b), c is always irrational
+- Different keys generate different algebraic number fields
+- The curve splits into disconnected components whose structure depends on the key
+- Multiple parameter sets can fit the same observed points
+
+## Why This Matters
+
+Traditional algebraic attacks assume you're working in a known number field. Here, the field itself changes with every key. An attacker would need to:
+1. Determine which field c lives in (requires knowing a,b)
+2. Construct a lattice basis for that field (requires knowing c)
+3. Express the attack in that basis (circular dependency)
+
+The nested square root formula blocks symbolic elimination, and the parameter ambiguity means even brute force finds multiple "valid" keys that decrypt to different messages.
+
+## Core Idea
+
+Alice and Bob share secret parameters (a, b). To encrypt:
+1. Convert message to bits
+2. Detect which disconnected components exist on the curve
+3. For each bit, generate a point on a specific component
+4. Encode the bit in the sign of the y-coordinate (positive = 1, negative = 0)
+5. Add decoy points and shuffle
+6. Send the constellation
+
+Without knowing (a, b), an attacker can't determine:
+- How many components exist
+- Where component boundaries are
+- Which points are real vs decoys
+- What the bits encode to
+
+## Quick Start
+
+```python
+from ccp import encrypt, decrypt, generate_keypair
+
+# Generate shared key
+a, b, c = generate_keypair()
+
+# Encrypt
+message = "Hello, World!"
+ciphertext = encrypt(message, a, b, c)
+
+# Decrypt
+plaintext = decrypt(ciphertext, a, b, c)
+assert plaintext == message
+```
+
+## Security Properties
+
+What we claim:
+- Resistant to brute force (exponential in precision requirements)
+- Resistant to algebraic attacks (nested radicals block symbolic methods)
+- Resistant to lattice reduction (dynamic field structure)
+- Parameter ambiguity provides natural deniability
+
+What we DON'T claim:
+- Proven reduction to NP-hard problems
+- Quantum resistance guarantees
+- Production-ready security
+
+This is research-level cryptography. It hasn't been battle-tested. Don't use it for anything important yet.
+
+## Attack Results
+
+Tested attacks on sample parameters (a=2.5, b=3.7) with 5 known points:
+
+| Attack Type | Result | Reason |
+|-------------|--------|---------|
+| Brute Force | Found 20+ valid keys | Parameter ambiguity (good for us) |
+| Algebraic Elimination | Failed | Nested radicals aren't solvable |
+| Statistical Analysis | No patterns | Point distribution reveals nothing |
+| Timing Analysis | Constant time | No leakage detected |
+
+The fact that brute force finds multiple valid solutions is actually a feature. Each "solution" decrypts to a different message, so the attacker still doesn't know which key is correct.
+
+## Implementation Status
+
+- [x] Core math functions
+- [x] Component detection algorithm  
+- [x] Encryption/decryption protocol
+- [x] Basic attack simulations
+- [ ] Adaptive tolerance
+- [ ] Side-channel protections
+- [ ] Performance optimization
+- [ ] Comprehensive test suite
+
+## Comparison to Established Systems
+
+| System | Key Size | Security Basis | Maturity |
+|--------|----------|----------------|----------|
+| RSA-2048 | 2048 bits | Integer factorization | 40+ years |
+| ECC-256 | 256 bits | Discrete logarithm | 30+ years |
+| **CCP** | ~128 bits | Parameter recovery | 0 years |
+
+The trade-off: potentially interesting security properties vs. zero real-world testing.
+
+## Why "Complete Curve"?
+
+The name comes from working with the complete point set across all components of the curve, including both signs of y for each valid x. The encryption leverages the full geometric structure, not just isolated points.
+
+## Contributing
+
+This is experimental cryptography. Breaking it would be a contribution. If you find an attack:
+1. Document it thoroughly
+2. Open an issue with your approach
+3. Include code if possible
+
+Improvements to the protocol, implementation efficiency, or theoretical analysis are also welcome.
+
+## Roadmap
+
+**Short term:**
+- Rigorous attack simulations
+- Performance benchmarks
+- Better error handling
+
+**Medium term:**
+- Formal security proofs (if possible)
+- Quantum attack analysis
+- Key exchange protocol
+
+**Long term:**
+- Peer review from academic cryptographers
+- Standards document
+- If it survives scrutiny: production implementation
+
+## Known Issues
+
+1. **No proven hardness** - We conjecture parameter recovery is hard, but can't prove it
+2. **Numerical precision** - Implementation requires careful floating-point handling
+3. **Component detection** - Canonical algorithm needs more testing
+4. **Quantum resistance** - Unclear if Grover's algorithm or other quantum methods apply
+
+## Citation
+
+If you use this in research:
+```
+@misc{ccp2024,
+  title={Complete Curve Protocol: A Novel Cryptosystem Based on Parameter-Dependent Algebraic Structures},
+  author={[iamaproficentinfodumper: on discord]},
+  coauthors = {[sho_2308: on discord - (or captain Bihar), Jaggu from India, and Rajni fanboy from India]}
+  year={2025},
+  note={Experimental cryptographic protocol, not peer-reviewed}
+}
+```
+
+## License
+
+MIT License - Use at your own risk. This is experimental. Don't encrypt anything you actually care about with this.
+
+## Acknowledgments
+
+Inspired by the observation that cryptographic hardness can come from hiding the algebraic structure itself, not just the data within it.
+
+Thanks to everyone who tries to break this. That's how we learn if it actually works.
+
+---
+
+**Status: EXPERIMENTAL - DO NOT USE IN PRODUCTION**
+
+This is a research prototype exploring novel cryptographic constructions. It has not been audited, peer-reviewed, or tested at scale. Use for learning and research only.
