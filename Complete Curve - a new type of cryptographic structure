@@ -1,6 +1,6 @@
 y^2 = ax^5 + bx^4 + x^3 + cx^2 - c
 where c is the solution of,
-(a+b)^2 + (ab)^2 = c^4 - 2ac^2 (its alwayss irrational for integer a and b)
+(a+b)^2 + (ab)^2 = c^4 - 2c^2 (its alwayss irrational for integer a and b)
 
 # Complete Curve Protocol (CCP)
 
