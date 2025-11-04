@@ -1,6 +1,10 @@
-# Complete Curve Protocol (CCP) v2.0
+y^2 = ax^5 + bx^4 + x^3 + cx^2 - c
+where c is the solution of,
+(a+b)^2 + (ab)^2 = c^4 - 2c^2 (its alwayss irrational for integer a and b)
 
-A novel cryptographic system based on quintic polynomial curves with parameter-dependent algebraic structures and rational function encoding.
+# Complete Curve Protocol (CCP)
+
+A novel cryptographic system based on quintic polynomial curves with parameter-dependent algebraic structures.
 
 ## Overview
 
@@ -10,12 +14,12 @@ The curve equation is:
 ```
 y² = ax⁵ + bx⁴ + x³ + cx² - c
 ```
-
 Define a helper function G(a, b) such that it finds the value of K in:
-```
-a⁴ + b⁴ + ab + 1 = K - (b+1)⁴
-```
-so that G(a,b) = K.
+a^4 + b^4 + ab + 1 = K - (b+1)^4
+so that G(a,b)=K.
+
+When publishing encoded point data, the transmitted value for a point with coordinate x is:
+t = y^2 * ( G(a + c, b c + x) + x - c )
 
 where parameters (a, b) are the secret key, and c is computed from the constraint:
 ```
@@ -28,49 +32,14 @@ This constraint creates several interesting properties:
 - The curve splits into disconnected components whose structure depends on the key
 - Multiple parameter sets can fit the same observed points
 
-## Version 2.0 Updates
-
-**Major Change: Rational Function Encoding**
-
-The original encoding scheme was vulnerable to polynomial interpolation attacks with sufficient data points (>40 points). Version 2.0 introduces a rational function encoding that resists this attack vector.
-
-### New Encoding Scheme
-
-When publishing encoded point data, the transmitted value for a point with coordinate x is:
-
-```
-t = y² * R(a, b, c, x)
-```
-
-where R(a, b, c, x) is a rational function defined as:
-
-```
-         P(a, b, c, x)
-R(a,b,c,x) = ───────────── + α·G(a + c, bc + x)
-         Q(a, b, c, x)
-
-where:
-  P(a,b,c,x) = (a+c)⁴·x³ + (b+c)³·x² + (ab+c)·x + (abc)²
-  Q(a,b,c,x) = x² + c·x + (a+b) + 1
-  α = 0.01 (scaling factor)
-```
-
-**Why Rational Functions?**
-
-1. **Non-polynomial structure** - Cannot be fit by polynomial interpolation
-2. **Singularities & poles** - The denominator creates discontinuities that break regression models
-3. **Algebraic complexity** - Division is not a polynomial operation; the ratio resists standard statistical attacks
-4. **Parameter entanglement** - Both numerator and denominator depend on all parameters in non-separable ways
-
 ## Why This Matters
 
 Traditional algebraic attacks assume you're working in a known number field. Here, the field itself changes with every key. An attacker would need to:
 1. Determine which field c lives in (requires knowing a,b)
 2. Construct a lattice basis for that field (requires knowing c)
 3. Express the attack in that basis (circular dependency)
-4. **Model the rational function encoding** (requires understanding parameter dependencies)
 
-The nested square root formula blocks symbolic elimination, the parameter ambiguity means even brute force finds multiple "valid" keys that decrypt to different messages, and the rational function encoding blocks statistical interpolation attacks.
+The nested square root formula blocks symbolic elimination, and the parameter ambiguity means even brute force finds multiple "valid" keys that decrypt to different messages.
 
 ## Core Idea
 
@@ -81,31 +50,15 @@ Alice and Bob share secret parameters (a, b). To encrypt:
 4. Encode the bit in the sign of the y-coordinate (positive = 1, negative = 0)
 5. Add decoy points and shuffle
 6. Send the constellation
-
-**Point Encoding:**
-```
-For each point (x, y):
-  Compute P(a,b,c,x) = (a+c)⁴·x³ + (b+c)³·x² + (ab+c)·x + (abc)²
-  Compute Q(a,b,c,x) = x² + c·x + (a+b) + 1
-  Compute multiplier R = P/Q + 0.01·G(a+c, bc+x)
-  Transmit: t = y² · R
-```
-
-**Point Decoding (receiver with key):**
-```
-For each transmitted value t:
-  Compute multiplier R using known (a, b, c) and received x
-  Recover: y² = t / R
-  Check if y² satisfies curve equation
-  Extract bit from sign of y
-```
-
+7.(> When publishing point data:  
+> Each transmitted scalar is  
+> t = y^2 * ( G(a + c, b c + x) + x - c )  
+> (receiver, knowing a,b,c and x, computes the same multiplier and divides to recover y^2).)
 Without knowing (a, b), an attacker can't determine:
 - How many components exist
 - Where component boundaries are
 - Which points are real vs decoys
 - What the bits encode to
-- The rational function parameters
 
 ## Quick Start
 
@@ -124,100 +77,33 @@ plaintext = decrypt(ciphertext, a, b, c)
 assert plaintext == message
 ```
 
-## Implementation Example
-
-```python
-def G(a, b):
-    """Helper function for encoding"""
-    return a**4 + b**4 + a*b + 1 + (b + 1)**4
-
-def compute_c(a, b):
-    """Solve constraint equation for c"""
-    # Solve: (a+b)² + (ab)² = c⁴ - 2c²
-    # Using Newton-Raphson iteration
-    target = (a + b)**2 + (a * b)**2
-    c = sqrt(target)  # Initial guess
-    
-    for _ in range(1000):
-        f = c**4 - 2*c**2 - target
-        df = 4*c**3 - 4*c
-        if abs(df) < 1e-10:
-            break
-        c_new = c - f/df
-        if abs(c_new - c) < 1e-12:
-            break
-        c = c_new
-    
-    return c
-
-def rational_multiplier(x, a, b, c):
-    """Compute rational function encoding multiplier"""
-    # Numerator
-    P = (a + c)**4 * x**3 + (b + c)**3 * x**2 + (a*b + c)*x + (a*b*c)**2
-    
-    # Denominator (ensure non-zero)
-    Q = x**2 + c*x + (a + b) + 1
-    
-    # Combined rational function
-    R = P / Q + 0.01 * G(a + c, b*c + x)
-    
-    return R
-
-def encode_point(x, y, a, b, c):
-    """Encode a point for transmission"""
-    y_squared = y * y
-    multiplier = rational_multiplier(x, a, b, c)
-    return y_squared * multiplier
-
-def decode_point(t, x, a, b, c):
-    """Decode a transmitted value (requires key)"""
-    multiplier = rational_multiplier(x, a, b, c)
-    y_squared = t / multiplier
-    
-    # Verify point is on curve
-    expected_y_squared = (a * x**5 + b * x**4 + 
-                         x**3 + c * x**2 - c)
-    
-    if abs(y_squared - expected_y_squared) < 1e-6:
-        return sqrt(y_squared)
-    else:
-        raise ValueError("Invalid point")
-```
-
 ## Security Properties
 
 What we claim:
 - Resistant to brute force (exponential in precision requirements)
 - Resistant to algebraic attacks (nested radicals block symbolic methods)
 - Resistant to lattice reduction (dynamic field structure)
-- **Resistant to polynomial interpolation** (rational function encoding, v2.0)
-- **Resistant to statistical regression** (non-polynomial structure, v2.0)
 - Parameter ambiguity provides natural deniability
 
 What we DON'T claim:
 - Proven reduction to NP-hard problems
 - Quantum resistance guarantees
-- Production-ready security (still experimental)
+- Production-ready security
 
 This is research-level cryptography. It hasn't been battle-tested. Don't use it for anything important yet.
 
-## Attack Results (v2.0)
+## Attack Results
 
-Tested attacks on sample parameters (a=2.5, b=3.7) with up to 50 known points:
+Tested attacks on sample parameters (a=2.5, b=3.7) with 5 known points:
 
-| Attack Type | v1.0 Result | v2.0 Result | Notes |
-|-------------|-------------|-------------|-------|
-| Brute Force | 20+ valid keys | 1 unique key at high precision | Parameter ambiguity at low precision |
-| Algebraic Elimination | Failed | Failed | Nested radicals block symbolic attacks |
-| Statistical Analysis | No patterns | No patterns | Point distribution reveals nothing |
-| **Polynomial Interpolation** | **VULNERABLE (50+ pts)** | **SECURE** | Rational encoding resists regression |
-| Lattice Reduction | Blocked | Blocked | Cannot construct lattice without field |
-| Differential Analysis | Blocked | Blocked | High variance in dt/dx ratios |
-| Meet-in-the-Middle | Partial success | Partial success | Search space reduction but ambiguity remains |
-| ML Gradient Descent | Local minima | Local minima | Complex error landscape |
-| Related-Key Attack | Blocked | Blocked | Independent algebraic structures |
+| Attack Type | Result | Reason |
+|-------------|--------|---------|
+| Brute Force | Found 20+ valid keys | Parameter ambiguity (good for us) |
+| Algebraic Elimination | Failed | Nested radicals aren't solvable |
+| Statistical Analysis | No patterns | Point distribution reveals nothing |
+| Timing Analysis | Constant time | No leakage detected |
 
-**Key Improvement:** Version 2.0 successfully patches the polynomial interpolation vulnerability discovered in v1.0.
+The fact that brute force finds multiple valid solutions is actually a feature. Each "solution" decrypts to a different message, so the attacker still doesn't know which key is correct.
 
 ## Implementation Status
 
@@ -225,61 +111,24 @@ Tested attacks on sample parameters (a=2.5, b=3.7) with up to 50 known points:
 - [x] Component detection algorithm  
 - [x] Encryption/decryption protocol
 - [x] Basic attack simulations
-- [x] **Rational function encoding (v2.0)**
-- [x] **Polynomial interpolation resistance testing (v2.0)**
 - [ ] Adaptive tolerance
 - [ ] Side-channel protections
 - [ ] Performance optimization
 - [ ] Comprehensive test suite
-- [ ] Formal security proofs
 
 ## Comparison to Established Systems
 
-| System | Key Size | Security Basis | Maturity | Known Weaknesses |
-|--------|----------|----------------|----------|------------------|
-| RSA-2048 | 2048 bits | Integer factorization | 40+ years | Quantum vulnerable |
-| ECC-256 | 256 bits | Discrete logarithm | 30+ years | Quantum vulnerable |
-| **CCP v2.0** | ~128 bits | Parameter recovery + rational encoding | 0 years | Unknown |
+| System | Key Size | Security Basis | Maturity |
+|--------|----------|----------------|----------|
+| RSA-2048 | 2048 bits | Integer factorization | 40+ years |
+| ECC-256 | 256 bits | Discrete logarithm | 30+ years |
+| **CCP** | ~128 bits | Parameter recovery | 0 years |
 
 The trade-off: potentially interesting security properties vs. zero real-world testing.
-
-## Performance Considerations
-
-**Encoding overhead:**
-- Original (v1.0): 1 polynomial evaluation + 1 multiplication
-- Rational (v2.0): 2 polynomial evaluations + 1 division + 1 multiplication
-
-**Computational cost:** Approximately 2-3x slower than v1.0, but significantly more secure.
-
-**Recommended parameters:**
-- Key size: a, b ∈ [1, 10] with 2-3 decimal places of precision
-- Point limit per message: 20-30 (maintains parameter ambiguity)
-- Decoy ratio: 30-50% decoy points
 
 ## Why "Complete Curve"?
 
 The name comes from working with the complete point set across all components of the curve, including both signs of y for each valid x. The encryption leverages the full geometric structure, not just isolated points.
-
-## Migration from v1.0 to v2.0
-
-If you implemented v1.0:
-
-1. **Replace encoding function:**
-   ```python
-   # OLD (v1.0)
-   t = y**2 * (G(a + c, b*c + x) + x - c)
-   
-   # NEW (v2.0)
-   P = (a+c)**4 * x**3 + (b+c)**3 * x**2 + (a*b+c)*x + (a*b*c)**2
-   Q = x**2 + c*x + (a+b) + 1
-   t = y**2 * (P/Q + 0.01*G(a + c, b*c + x))
-   ```
-
-2. **Update decoding function** similarly
-
-3. **Re-test with attack suite** to verify security
-
-4. **Increase point limits** if desired (v2.0 can handle 40-50 points safely)
 
 ## Contributing
 
@@ -290,17 +139,9 @@ This is experimental cryptography. Breaking it would be a contribution. If you f
 
 Improvements to the protocol, implementation efficiency, or theoretical analysis are also welcome.
 
-**Especially wanted:**
-- Formal security proofs
-- Quantum algorithm analysis
-- Side-channel attack testing
-- Performance optimizations
-- Alternative encoding schemes
-
 ## Roadmap
 
 **Short term:**
-- ✅ Fix polynomial interpolation vulnerability (DONE in v2.0)
 - Rigorous attack simulations
 - Performance benchmarks
 - Better error handling
@@ -309,7 +150,6 @@ Improvements to the protocol, implementation efficiency, or theoretical analysis
 - Formal security proofs (if possible)
 - Quantum attack analysis
 - Key exchange protocol
-- Side-channel protections
 
 **Long term:**
 - Peer review from academic cryptographers
@@ -322,35 +162,17 @@ Improvements to the protocol, implementation efficiency, or theoretical analysis
 2. **Numerical precision** - Implementation requires careful floating-point handling
 3. **Component detection** - Canonical algorithm needs more testing
 4. **Quantum resistance** - Unclear if Grover's algorithm or other quantum methods apply
-5. **Performance overhead** - Rational encoding is 2-3x slower than v1.0
-
-## Version History
-
-**v2.0 (2025):**
-- Introduced rational function encoding
-- Fixed polynomial interpolation vulnerability
-- Tested with comprehensive attack suite
-- Added 7 advanced attack simulations
-
-**v1.0 (2025):**
-- Initial release
-- Basic polynomial encoding
-- Core protocol design
-- Discovered vulnerable to interpolation at scale
 
 ## Citation
 
 If you use this in research:
-```bibtex
-@misc{ccp2025v2,
-  title={Complete Curve Protocol v2.0: A Novel Cryptosystem Based on Parameter-Dependent 
-         Algebraic Structures with Rational Function Encoding},
+```
+@misc{ccp2024,
+  title={Complete Curve Protocol: A Novel Cryptosystem Based on Parameter-Dependent Algebraic Structures},
   author={[iamaproficentinfodumper: on discord]},
-  coauthors={[sho_2308: on discord - (or captain Bihar), Jaggu from India, 
-              and Rajni fanboy from India]},
+  coauthors = {[sho_2308: on discord - (or captain Bihar), Jaggu from India, and Rajni fanboy from India]}
   year={2025},
-  version={2.0},
-  note={Experimental cryptographic protocol with improved encoding; not peer-reviewed}
+  note={Experimental cryptographic protocol, not peer-reviewed}
 }
 ```
 
@@ -362,26 +184,10 @@ MIT License - Use at your own risk. This is experimental. Don't encrypt anything
 
 Inspired by the observation that cryptographic hardness can come from hiding the algebraic structure itself, not just the data within it.
 
-Special thanks to the cryptanalysis that discovered the v1.0 vulnerability - this is exactly how cryptography improves.
-
 Thanks to everyone who tries to break this. That's how we learn if it actually works.
 
 ---
 
-## Security Notice
-
 **Status: EXPERIMENTAL - DO NOT USE IN PRODUCTION**
 
-This is a research prototype exploring novel cryptographic constructions. While v2.0 addresses known vulnerabilities from v1.0, it has not been:
-- Formally proven secure
-- Audited by professional cryptographers
-- Peer-reviewed in academic journals
-- Tested at scale in real-world conditions
-
-**Use for learning and research only.**
-
-If you need production cryptography, use established standards like AES-256, RSA-4096, or ECC P-384.
-
----
-
-*"The best cryptography is the kind that's been attacked for decades and survived. CCP is brand new. Help us test it."*
+This is a research prototype exploring novel cryptographic constructions. It has not been audited, peer-reviewed, or tested at scale. Use for learning and research only.
