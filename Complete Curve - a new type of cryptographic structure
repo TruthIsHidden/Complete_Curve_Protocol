@@ -18,8 +18,13 @@ Define a helper function G(a, b) such that it finds the value of K in:
 a^4 + b^4 + ab + 1 = K - (b+1)^4
 so that G(a,b)=K.
 
+a = a + int(1000 * x);
+b = b + int(1000 * x);
+sqrt_term = sqrt((c_i * a_i * b_i * x)**2 + 1)
+cubic_term = x**3 - 3*c_i + a_i
+
 When publishing encoded point data, the transmitted value for a point with coordinate x is:
-t = y^2 * ( G(a + c, b c + x) + x - c )
+t = y^2 * ( G(a + c, b c + x) + x - c  - cubic_term + sqrt_term)
 
 where parameters (a, b) are the secret key, and c is computed from the constraint:
 ```
