@@ -17,14 +17,19 @@ y² = ax⁵ + bx⁴ + x³ + cx² - c
 Define a helper function G(a, b) such that it finds the value of K in:
 a^4 + b^4 + ab + 1 = K - (b+1)^4
 so that G(a,b)=K.
+//point index is the index of the co-ordinate or "point" this is to prevent a direct modelling of the function with many samples.
+ a_i = a + point_index * 0.1
+ b_i = b + point_index * 0.1
+ c_i = c + point_index * 0.1
+    
 
-a = a + int(1000 * x);
-b = b + int(1000 * x);
-sqrt_term = sqrt((c_i * a_i * b_i * x)**2 + 1)
-cubic_term = x**3 - 3*c_i + a_i
+ sqrt_term = sqrt((c_i * a_i * b_i * x)**2 + 1)
+ cubic_term = x**3 - 3*c_i + a_i
+ multiplier = G(a_i + b_i + c_i, x**2 - a_i*b_i*c_i) - cubic_term * sqrt_term
+    
 
 When publishing encoded point data, the transmitted value for a point with coordinate x is:
-t = y^2 * ( G(a + c, b c + x) + x - c  - cubic_term + sqrt_term)
+t = y^2 * (multiplier  + √(G(a_i + b√x, b_i + a√x^2 + 1)));
 
 where parameters (a, b) are the secret key, and c is computed from the constraint:
 ```
